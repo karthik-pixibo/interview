@@ -5,6 +5,8 @@ class LRUCache {
         this.maxEntries = parseInt((config || {}).size) || 1; //check if number and parse
         if (this.maxEntries < 1) this.maxEntries = 1; //make sure the max size is more than 0
         this.cache = new Map(); //initialize the storage
+
+        this.invalidateKeys();
     }
 
     get(key) {
@@ -12,22 +14,30 @@ class LRUCache {
             let item = this.cache.get(key);
             if (item) // refresh key
             {
-                this.cache.delete(key);
+                this.del(key);
                 this.cache.set(key, item);
             }
-            return item || null;
+            return (item || {}).data || null;
         } else
             return null;
     }
 
-    put(key, val) {
+    put(key, val, ttlInSeconds = -1) { //add kv to cache. Optional TTL setting
         if (this.validateKey(key) && this.validate(val)) {
             if (this.cache.has(key)) // refresh key
                 this.cache.delete(key);
             else if (this.cache.size == this.maxEntries) // evict oldest
-                this.cache.delete(this._first());
-            this.cache.set(key, val);
+                this.cache.delete(this.cache.keys().next().value); //the first item is the one which was inserted first
+            this.cache.set(key, {
+                data: val, ttl: this._setTTL(ttlInSeconds)
+            });
         }
+    }
+
+    _setTTL(ttlInSeconds) { //get TTL in epoch time
+        var currentDate = new Date();
+        currentDate.setSeconds(currentDate.getSeconds() + (ttlInSeconds > 0 ? ttlInSeconds : 999999999999));
+        return currentDate.getTime();
     }
 
     reset() { //clear the cache
@@ -46,10 +56,6 @@ class LRUCache {
         return this.cache.size;
     }
 
-    _first() { //the first item is the one which was inserted first
-        return this.cache.keys().next().value;
-    }
-
     validateKey(key) { //make sure the key is only either a string or a number
         return (this.validate(key) && (typeof key === "string" || typeof key === "number"));
     }
@@ -57,6 +63,23 @@ class LRUCache {
     validate(value) { //Check if value is not null or undefined
         return !(value == null);
     }
+
+    invalidateKeys() {
+        this.invalidateCacheEvery(1).then(() => {
+            let currentTime = new Date().getTime();
+            for (const [key, value] of this.cache.entries()) {
+                if (value.ttl <= currentTime) {
+                    this.del(key);
+                }
+            }
+        }).finally(() => {
+            this.invalidateKeys(); //keep checking
+        });
+    }
+
+    invalidateCacheEvery(inSeconds) {
+        return new Promise(resolve => setTimeout(resolve, inSeconds * 1000));
+    }
 }
 
-module.exports = LRUCache;
+if (module) module.exports = LRUCache;

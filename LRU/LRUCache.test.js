@@ -1,10 +1,12 @@
 ﻿const LRUCache = require('./LRUCache')
+jest.setTimeout(30000);
+
 
 /*********************************************/
-            /*  CONFIG TESTS  */
+/*  CONFIG TESTS  */
 /*********************************************/
 test('Set and Get Cache Max Entries Size', () => {
-    let lruCache = new LRUCache({ size: 99 });   
+    let lruCache = new LRUCache({ size: 99 });
     expect(lruCache.getLimit()).toBe(99);
 })
 
@@ -27,14 +29,14 @@ test('Validate Config Size Value - Should be Greater than Zero else set Default 
 })
 
 /*********************************************/
-        /*  GET AND SET VALUE TESTS */
+/*  GET AND SET VALUE TESTS */
 /*********************************************/
 test('Set and Get Cache', () => {
     let lruCache = new LRUCache({ size: 3 });
     lruCache.put("key1", "value1");
     lruCache.put("key2", "value2");
     lruCache.put("key3", "value3");
-        
+
     expect(lruCache.get("key1")).toBe("value1");
     expect(lruCache.get("key2")).toBe("value2");
     expect(lruCache.get("key3")).toBe("value3");
@@ -70,7 +72,23 @@ test('Get NULL when invalid key is used', () => {
 });
 
 /*********************************************/
-            /*  DELETE TESTS  */
+/*  EVICTION TESTS  */
+/*********************************************/
+test('Evict recently used key', () => {
+    let lruCache = new LRUCache({ size: 3 });
+    lruCache.put("key1", "value1");
+    lruCache.put("key2", "value2");
+    lruCache.put("key3", "value3");
+
+    expect(lruCache.count()).toBe(3);
+    lruCache.put("key4", "value4"); //add a new kv
+
+    expect(lruCache.get("key1")).toBe(null);
+    expect(lruCache.get("key4")).toBe("value4");
+});
+
+/*********************************************/
+/*  DELETE TESTS  */
 /*********************************************/
 test('Delete by Valid Key', () => {
     let lruCache = new LRUCache({ size: 3 });
@@ -85,9 +103,8 @@ test('Delete by Valid Key', () => {
 })
 
 /*********************************************/
-            /*  RESET TEST  */
+/*  RESET TEST  */
 /*********************************************/
-
 test('Reset Cache', () => {
     let lruCache = new LRUCache({ size: 3 });
     lruCache.put("key1", "value1");
@@ -98,3 +115,16 @@ test('Reset Cache', () => {
     lruCache.reset();
     expect(lruCache.count()).toBe(0);
 })
+
+/*********************************************/
+/*  TTL TEST  */
+/*********************************************/
+test("TTL Tests - Delete Keys if ttl expired", async () => {
+    let lruCache = new LRUCache({ size: 3 });
+    lruCache.put("key1", "value1");
+    lruCache.put("key2", "value2");
+    lruCache.put("key3", "value3", 2);
+
+    await new Promise((r) => setTimeout(r, 3000));
+    expect(lruCache.count()).toBe(2);
+});
